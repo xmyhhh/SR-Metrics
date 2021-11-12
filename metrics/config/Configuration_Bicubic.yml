@@ -1,0 +1,26 @@
+Pairs:
+  Dataset:
+#    - BSD100
+    - DIV2K
+#    - Manga109
+#    - Set5
+#    - Set14
+#    - Urban100
+  GTFolder: 
+#    - ../data/GT/BSD100
+    - ../data/GT/DIV2K
+#    - ../data/GT/Manga109
+#    - ../data/GT/Set5
+#    - ../data/GT/Set14
+#    - ../data/GT/Urban100
+
+  SRFolder:
+#    - ../data/SR/BSD100/Bicubic
+    - ../data/SR/DIV2K/Bicubic
+#    - ../data/SR/Manga109/Bicubic
+#    - ../data/SR/Set5/Bicubic
+#    - ../data/SR/Set14/Bicubic
+#    - ../data/SR/Urban100/Bicubic
+
+Name: Bicubic
+Echo: True
