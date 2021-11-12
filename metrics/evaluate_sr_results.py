@@ -71,7 +71,7 @@ def evaluate_job(SR_path, HR_path, image_name, RGB2YCbCr):
     return (image_name, MATLAB, LPIPS)
 
 
-RGB2YCbCr = False
+
 parser = argparse.ArgumentParser(description="Evaluate SR results")
 parser.add_argument('YAML', type=str, help='configuration file')
 args = parser.parse_args()
@@ -83,6 +83,8 @@ with open(args.YAML, 'r', encoding='UTF-8') as f:
 Datasets = conf['Pairs']['Dataset']
 SRFolder = conf['Pairs']['SRFolder']
 GTFolder = conf['Pairs']['GTFolder']
+RGB2YCbCr = conf['RGB2YCbCr']
+max_workers = conf['max_workers']
 Metric = ['Ma', 'NIQE', 'PI', 'PSNR', 'SSIM', 'MSE', 'RMSE', 'BRISQUE', 'LPIPS']
 Name = conf['Name']
 Echo = conf['Echo']
@@ -130,7 +132,7 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
                 columns=('Name', 'PI', 'Ma', 'NIQE', 'MSE', 'RMSE', 'PSNR', 'SSIM', 'BRISQUE', 'LPIPS'))
 
         # new ThreadPool
-        executor = ThreadPoolExecutor(max_workers=2)
+        executor = ThreadPoolExecutor(max_workers=max_workers)
         all_task = []
         lock = Lock()
         for HR_path, SR_path in zip(HR_paths, SR_paths):

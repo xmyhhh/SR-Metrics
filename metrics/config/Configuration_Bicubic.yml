@@ -21,6 +21,7 @@ Pairs:
 #    - ../data/SR/Set5/Bicubic
 #    - ../data/SR/Set14/Bicubic
 #    - ../data/SR/Urban100/Bicubic
-
+RGB2YCbCr: False
+max_workers: 4
 Name: Bicubic
 Echo: True
