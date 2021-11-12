@@ -14,7 +14,8 @@ Note that the `'SSIM'` values are calculated by `ssim.m`, the matlab code includ
 
 ## Highlights
 - Breakpoint continuation support : The program can continue from where it was last interrupted by using `.xlsx` file
-- Parallel computing  support : Programs can be re-scaled to take advantage of multi-core performance by using python`ThreadPoolExecutor`
+- Parallel computing  support : The Programs can be re-scaled to take advantage of multi-core performance by using python`ThreadPoolExecutor`
+- Both RGB and YCbCr color space support 
 
 ## Dependencies
 - Python 3 
@@ -25,5 +26,4 @@ Note that the `'SSIM'` values are calculated by `ssim.m`, the matlab code includ
 Please ref [BLIND IMAGE QUALITY TOOLBOX](./metrics/README.md "BLIND IMAGE QUALITY TOOLBOX")
 
 ## Reference
-
 The code is based on [SPSR](https://github.com/Maclory/SPSR)  and [BIQT](https://github.com/dsoellinger/blind_image_quality_toolbox). 
