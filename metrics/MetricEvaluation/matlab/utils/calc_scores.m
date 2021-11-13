@@ -27,7 +27,7 @@ p=genpath('.\MetricEvaluation\utils\srmetric');
 addpath(p);
 scores.Ma = quality_predict(lr_image);
 if ndims(lr_image) == 2
-    [scores(ii).SSIM,scores(ii).SSIM_map] = ssim(lr_image, gt_image);
+    [scores.SSIM,scores.SSIM_map] = ssim(lr_image, gt_image);
 end
 if ndims(lr_image) == 3
 
