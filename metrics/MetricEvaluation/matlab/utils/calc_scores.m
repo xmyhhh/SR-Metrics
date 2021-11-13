@@ -1,4 +1,4 @@
-function [scores] = calc_scores(lr_path,gt_path,image_name,shave_width,rgb2ycbcr)
+function [scores] = calc_scores(lr_path,gt_path,image_name,shave_width,rgb2ycbcr,evaluate_Ma)
 
 
 
@@ -20,24 +20,29 @@ if size(lr_image) ~= size(gt_image)
 end
 %% Calculating scores
 % scores(ii).name = file_list(ii).name;
-scores.MSE = immse(lr_image,gt_image);  % matlab 自带函数
-scores.PSNR = psnr(lr_image, gt_image);  % matlab 自带函数
+%scores.MSE = immse(lr_image,gt_image);  % matlab 自带函数
+%scores.PSNR = psnr(lr_image, gt_image);  % matlab 自带函数
 
 p=genpath('.\MetricEvaluation\utils\srmetric');
 addpath(p);
-scores.Ma = quality_predict(lr_image);
-if ndims(lr_image) == 2
-    [scores.SSIM,scores.SSIM_map] = ssim(lr_image, gt_image);
-end
-if ndims(lr_image) == 3
 
-    for j=1:3
-        [ssim_channel(j).SSIM,ssim_channel(j).SSIM_map]= ssim(lr_image(:,:,j), gt_image(:,:,j));
-    end 
-     scores.SSIM =  mean([ssim_channel.SSIM ]);
-     scores.SSIM_map=mean([ssim_channel.SSIM_map]);
+if evaluate_Ma
+scores.Ma = quality_predict(lr_image);
 end
+%if ndims(lr_image) == 2
+%    [scores.SSIM,scores.SSIM_map] = ssim(lr_image, gt_image);
+%end
+%if ndims(lr_image) == 3
+%
+%    for j=1:3
+%        [ssim_channel(j).SSIM,ssim_channel(j).SSIM_map]= ssim(lr_image(:,:,j), gt_image(:,:,j));
+%    end
+%     scores.SSIM =  mean([ssim_channel.SSIM ]);
+%     scores.SSIM_map=mean([ssim_channel.SSIM_map]);
+%end
 rmpath(p);
+
+
 scores.NIQE = niqe.niqe(lr_image);
 
 scores.BRISQUE =brisque.brisquescore(lr_image,image_name);

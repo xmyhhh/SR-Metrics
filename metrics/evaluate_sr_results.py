@@ -40,10 +40,10 @@ class Logger(object):
         self.logger.addHandler(th)
 
 
-def CalMATLAB(SR_path, GT_path, image_name, RGB2YCbCr):
+def CalMATLAB(SR_path, GT_path, image_name, RGB2YCbCr, evaluate_Ma):
     eng = matlab.engine.start_matlab()
-    eng.addpath(eng.genpath(eng.fullfile(os.getcwd(), 'MetricEvaluation')))
-    res = eng.evaluate_results(SR_path, GT_path, image_name, RGB2YCbCr)
+    eng.addpath(eng.genpath(eng.fullfile(os.getcwd(), 'MetricEvaluation','matlab')))
+    res = eng.evaluate_results(SR_path, GT_path, image_name, RGB2YCbCr, evaluate_Ma)
     res = np.array(res)
     res = res.squeeze()
     return res
@@ -63,10 +63,11 @@ def CalLPIPS(SR_path, GT_path):
     return np.mean(res)
 
 
-def evaluate_job(SR_path, HR_path, image_name, RGB2YCbCr):
-    MATLAB = CalMATLAB(SR_path, HR_path, image_name, RGB2YCbCr)
+def evaluate_job(SR_path, HR_path, image_name, RGB2YCbCr, evaluate_Ma):
+    MATLAB = CalMATLAB(SR_path, HR_path, image_name, RGB2YCbCr, evaluate_Ma)
     LPIPS = CalLPIPS(SR_path, HR_path)
-    PSNR, SSIM, PSNR_Y, SSIM_Y = calculate_psnr_ssim(cv2.imread(HR_path)/255., cv2.imread(SR_path)/255., crop_border=4)
+    PSNR, SSIM, PSNR_Y, SSIM_Y = calculate_psnr_ssim(cv2.imread(HR_path) / 255., cv2.imread(SR_path) / 255.,
+                                                     crop_border=4)
     print("*Finished: Image " + image_name + " finished")
     return (image_name, MATLAB, LPIPS, PSNR, SSIM, PSNR_Y, SSIM_Y)
 
@@ -85,8 +86,12 @@ Datasets = conf['Pairs']['Dataset']
 SRFolder = conf['Pairs']['SRFolder']
 GTFolder = conf['Pairs']['GTFolder']
 RGB2YCbCr = conf['RGB2YCbCr']
+evaluate_Ma = conf['evaluate_Ma']
 max_workers = conf['max_workers']
-Metric = ['Ma', 'NIQE', 'PI', 'PSNR', 'SSIM', 'PSRN-Y', 'SSIM-Y', 'MSE', 'RMSE', 'BRISQUE', 'LPIPS']
+if evaluate_Ma:
+    Metric = ['Ma', 'NIQE', 'PI', 'PSNR', 'SSIM', 'PSRN-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS']
+else:
+    Metric = ['NIQE', 'PSNR', 'SSIM', 'PSRN-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS']
 Name = conf['Name']
 Echo = conf['Echo']
 
@@ -152,28 +157,30 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
                 # LPIPS = CalLPIPS(SR_path, HR_path)
                 # For thereadpool
                 print("+Task: Image " + image_name)
-                args = [SR_path, HR_path, image_name, RGB2YCbCr]
+                args = [SR_path, HR_path, image_name, RGB2YCbCr, evaluate_Ma]
                 all_task.append(executor.submit(lambda p: evaluate_job(*p), args))
 
         for future in as_completed(all_task):
             image_name, MATLAB, LPIPS, PSNR, SSIM, PSNR_Y, SSIM_Y = future.result()
 
             resDict = dict()
+
             resDict['Name'] = [image_name]
-            resDict['PI'] = [round(MATLAB[0], 4)]
-            resDict['Ma'] = [round(MATLAB[1], 4)]
-            resDict['NIQE'] = [round(MATLAB[2], 4)]
-            resDict['MSE'] = [round(MATLAB[3], 4)]
-            resDict['RMSE'] = [round(MATLAB[4], 4)]
+
+            resDict['NIQE'] = [round(MATLAB[0], 4)]
+            resDict['BRISQUE'] = [round(MATLAB[1], 4)]
             # resDict['PSNR'] = [round(MATLAB[5], 3)]
             # resDict['SSIM'] = [round(MATLAB[6], 3)]
             resDict['PSNR'] = [round(PSNR, 3)]
             resDict['SSIM'] = [round(SSIM, 3)]
             resDict['PSNR-Y'] = [round(PSNR_Y, 3)]
             resDict['SSIM-Y'] = [round(SSIM_Y, 3)]
-            resDict['BRISQUE'] = [round(MATLAB[7], 4)]
+
             resDict['LPIPS'] = [round(LPIPS, 4)]
 
+            if evaluate_Ma:
+                resDict['PI'] = [round(MATLAB[2], 4)]
+                resDict['Ma'] = [round(MATLAB[3], 4)]
             resDataFrame = pd.DataFrame(resDict)
             res_detail = pd.concat([res_detail, resDataFrame])
             with lock:
@@ -182,11 +189,11 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
 
         resDict = dict()
         resDict['Dataset'] = [i]
-        resDict['PI'] = round(res_detail["PI"].astype(float).mean(), 3)
-        resDict['Ma'] = round(res_detail["Ma"].astype(float).mean(), 3)
+        if evaluate_Ma:
+            resDict['PI'] = round(res_detail["PI"].astype(float).mean(), 3)
+            resDict['Ma'] = round(res_detail["Ma"].astype(float).mean(), 3)
         resDict['NIQE'] = round(res_detail["NIQE"].astype(float).mean(), 3)
-        resDict['MSE'] = round(res_detail["MSE"].astype(float).mean(), 3)
-        resDict['RMSE'] = round(res_detail["RMSE"].astype(float).mean(), 3)
+
         resDict['PSNR'] = round(res_detail["PSNR"].astype(float).mean(), 3)
         resDict['SSIM'] = round(res_detail["SSIM"].astype(float).mean(), 3)
         resDict['PSNR-Y'] = round(res_detail["PSNR-Y"].astype(float).mean(), 3)
@@ -197,11 +204,11 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
         res = res.append(resDataFrame)
         if Echo:
             log.logger.info('[' + i + ']    Dataset - ' + str(resDict['Dataset']))
-            log.logger.info('[' + i + ']    PI - ' + str(resDict['PI']))
-            log.logger.info('[' + i + ']    Ma - ' + str(resDict['Ma']))
+            if evaluate_Ma:
+                log.logger.info('[' + i + ']    PI - ' + str(resDict['PI']))
+                log.logger.info('[' + i + ']    Ma - ' + str(resDict['Ma']))
             log.logger.info('[' + i + ']  NIQE - ' + str(resDict['NIQE']))
-            log.logger.info('[' + i + ']   MSE - ' + str(resDict['MSE']))
-            log.logger.info('[' + i + ']  RMSE - ' + str(resDict['RMSE']))
+
             log.logger.info('[' + i + ']  PSNR - ' + str(resDict['PSNR']))
             log.logger.info('[' + i + ']  SSIM - ' + str(resDict['SSIM']))
             log.logger.info('[' + i + ']  PSNR-Y - ' + str(resDict['PSNR-Y']))
