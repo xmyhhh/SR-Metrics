@@ -109,11 +109,14 @@ Pairs:
     - Set5
     - Set14
   GTFolder: 
-    - ../data/GT/Set5/HR
-    - ../data/GT/Set14/HR
+    - ../data/GT/Set5
+    - ../data/GT/Set14
   SRFolder:
-    - ../data/SPSR_Paper/Set5
-    - ../data/SPSR_Paper/Set14
+    - ../data/SR/Set5/SPSR_Paper
+    - ../data/SR/Set14/SPSR_Paper
+RGB2YCbCr: True
+evaluate_Ma: False
+max_workers: 16
 Name: Test
 Echo: True
 ```
@@ -122,6 +125,9 @@ Echo: True
 - `Dataset`: The Datasets that need to be evaluated.
 - `GTFolder`: The folder path of ground-truth images.
 - `SRFolder`: The folder path of SR images.
+- `RGB2YCbCr`: Set whether convert color space in matlab code.
+- `evaluate_Ma`: Set whether to calculate metrics `Ma`. The calculation of metrics `Ma` takes a lot of time.
+- `max_workers`: max worker. 
 - `Name`: The evaluation's name.
 - `Echo`: Whether to echo scores while evaluating or not.
 
@@ -149,10 +155,13 @@ dataDict['Pairs']['Dataset']=MethodDict[method]
 dataDict['Pairs']['SRFolder']=[]
 dataDict['Pairs']['GTFolder']=[]
 dataDict['Name']=evaluation_name
+dataDict['RGB2YCbCr'] = RGB2YCbCr
+dataDict['evaluate_Ma'] = evaluate_Ma
+dataDict['max_workers'] = max_workers
 dataDict['Echo']=True
 for dataset in MethodDict[method]:
-    dataDict['Pairs']['SRFolder'].append(str(os.path.join('your_SR_Folder',method,dataset)))
-    dataDict['Pairs']['GTFolder'].append(str(os.path.join('your_GT_Folder','GT',dataset,'HR')))
+    dataDict['Pairs']['SRFolder'].append(str(os.path.join('your_SR_Folder','SR',dataset,method)))
+    dataDict['Pairs']['GTFolder'].append(str(os.path.join('your_GT_Folder','GT',dataset)))
 ```
 
 - `dataDict['Name']` is the evaluation's name.
@@ -160,11 +169,7 @@ for dataset in MethodDict[method]:
 - `your_SR_Folder` is the folder where your SR results are stored.
 - `your_GT_Folder` is the folder where your GT datasets are stored.
 
-4. Start generating the configuration file:
 
-```bash
-$ python generate_configuration.py
-```
 
 ### Evaluation
 
