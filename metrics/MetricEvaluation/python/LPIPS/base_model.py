@@ -1,4 +1,6 @@
 import os
+
+import numpy as np
 import torch
 from torch.autograd import Variable
 from pdb import set_trace as st

@@ -1,21 +1,20 @@
 import os
-import cv2
-import math
 import logging
-import datetime
+
+import cv2
 import pandas as pd
 from PIL import Image
-import LPIPS as models
+from MetricEvaluation.python import LPIPS as models
 import matlab.engine
 import torch
 import argparse
-from tqdm import tqdm
 from logging import handlers
 import numpy as np
 import yaml
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
-import random
+
+from MetricEvaluation.python.psnr_ssim import calculate_psnr_ssim
 from tools.file import changeSR_name, get_files_paths, get_file_name
 
 
@@ -67,8 +66,9 @@ def CalLPIPS(SR_path, GT_path):
 def evaluate_job(SR_path, HR_path, image_name, RGB2YCbCr):
     MATLAB = CalMATLAB(SR_path, HR_path, image_name, RGB2YCbCr)
     LPIPS = CalLPIPS(SR_path, HR_path)
+    PSNR, SSIM, PSNR_Y, SSIM_Y = calculate_psnr_ssim(cv2.imread(HR_path), cv2.imread(SR_path), crop_border=4)
     print("Image " + image_name + "finished")
-    return (image_name, MATLAB, LPIPS)
+    return (image_name, MATLAB, LPIPS, PSNR, SSIM, PSNR_Y, SSIM_Y)
 
 
 parser = argparse.ArgumentParser(description="Evaluate SR results")
@@ -79,12 +79,14 @@ conf = dict()
 with open(args.YAML, 'r', encoding='UTF-8') as f:
     conf = yaml.load(f.read(), Loader=yaml.FullLoader)
 
+# Step 1: init config and Logger
+
 Datasets = conf['Pairs']['Dataset']
 SRFolder = conf['Pairs']['SRFolder']
 GTFolder = conf['Pairs']['GTFolder']
 RGB2YCbCr = conf['RGB2YCbCr']
 max_workers = conf['max_workers']
-Metric = ['Ma', 'NIQE', 'PI', 'PSNR', 'SSIM', 'MSE', 'RMSE', 'BRISQUE', 'LPIPS']
+Metric = ['Ma', 'NIQE', 'PI', 'PSNR', 'SSIM', 'PSRN-Y', 'SSIM-Y', 'MSE', 'RMSE', 'BRISQUE', 'LPIPS']
 Name = conf['Name']
 Echo = conf['Echo']
 
@@ -96,7 +98,6 @@ if not os.path.isdir('../evaluate'):
 os.makedirs(os.path.join('../evaluate', output_path), exist_ok=True)
 
 log = Logger(os.path.join('../evaluate', output_path, Name + '.log'), level='info')
-
 log.logger.info('Init...')
 log.logger.info('SRFolder - ' + str(Datasets))
 log.logger.info('GTFolder - ' + str(GTFolder))
@@ -105,11 +106,14 @@ log.logger.info('Metric - ' + str(Metric))
 log.logger.info('Name - ' + Name)
 log.logger.info('Echo - ' + str(Echo))
 
+# Step 2: read xlsx file to get evaluate state
 if os.path.exists(xlsx_path):
     res = pd.read_excel(xlsx_path, dtype=str)
 else:
-    res = pd.DataFrame(columns=('Dataset', 'PI', 'Ma', 'NIQE', 'MSE', 'RMSE', 'PSNR', 'SSIM', 'BRISQUE', 'LPIPS'))
+    res = pd.DataFrame(
+        columns=('Dataset', 'PI', 'Ma', 'NIQE', 'MSE', 'RMSE', 'PSNR', 'SSIM', 'PSRN-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS'))
 
+# Step 3: evaluate on each dataset
 for i, j, k in zip(Datasets, SRFolder, GTFolder):
     if i in res['Dataset'].unique():
         print("Evaluation of Dataset" + i + " already exist, pass")
@@ -128,7 +132,8 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
             res_detail = pd.read_excel(xlsx_detail_path, dtype=str)
         else:
             res_detail = pd.DataFrame(
-                columns=('Name', 'PI', 'Ma', 'NIQE', 'MSE', 'RMSE', 'PSNR', 'SSIM', 'BRISQUE', 'LPIPS'))
+                columns=(
+                    'Name', 'PI', 'Ma', 'NIQE', 'MSE', 'RMSE', 'PSNR', 'SSIM', 'PSRN-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS'))
 
         # new ThreadPool
         executor = ThreadPoolExecutor(max_workers=max_workers)
@@ -142,14 +147,16 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
                 print("*Pass: Evaluation of Image " + image_name + " already exist")
 
             else:
+                # For single theread
                 # MATLAB = CalMATLAB(SR_path, HR_path, image_name, RGB2YCbCr)
                 # LPIPS = CalLPIPS(SR_path, HR_path)
+                # For thereadpool
                 print("+Task: Image " + image_name)
                 args = [SR_path, HR_path, image_name, RGB2YCbCr]
                 all_task.append(executor.submit(lambda p: evaluate_job(*p), args))
 
         for future in as_completed(all_task):
-            image_name, MATLAB, LPIPS = future.result()
+            image_name, MATLAB, LPIPS, PSNR, SSIM, PSNR_Y, SSIM_Y = future.result()
 
             resDict = dict()
             resDict['Name'] = [image_name]
@@ -158,10 +165,15 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
             resDict['NIQE'] = [round(MATLAB[2], 4)]
             resDict['MSE'] = [round(MATLAB[3], 4)]
             resDict['RMSE'] = [round(MATLAB[4], 4)]
-            resDict['PSNR'] = [round(MATLAB[5], 3)]
-            resDict['SSIM'] = [round(MATLAB[6], 3)]
+            # resDict['PSNR'] = [round(MATLAB[5], 3)]
+            # resDict['SSIM'] = [round(MATLAB[6], 3)]
+            resDict['PSNR'] = [round(PSNR, 3)]
+            resDict['SSIM'] = [round(SSIM, 3)]
+            resDict['PSNR-Y'] = [round(PSNR_Y, 3)]
+            resDict['SSIM-Y'] = [round(SSIM_Y, 3)]
             resDict['BRISQUE'] = [round(MATLAB[7], 4)]
             resDict['LPIPS'] = [round(LPIPS, 4)]
+
             resDataFrame = pd.DataFrame(resDict)
             res_detail = pd.concat([res_detail, resDataFrame])
             with lock:
@@ -177,6 +189,8 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
         resDict['RMSE'] = round(res_detail["RMSE"].astype(float).mean(), 3)
         resDict['PSNR'] = round(res_detail["PSNR"].astype(float).mean(), 3)
         resDict['SSIM'] = round(res_detail["SSIM"].astype(float).mean(), 3)
+        resDict['PSNR-Y'] = round(res_detail["PSNR-Y"].astype(float).mean(), 3)
+        resDict['SSIM-Y'] = round(res_detail["SSIM-Y"].astype(float).mean(), 3)
         resDict['BRISQUE'] = round(res_detail["BRISQUE"].astype(float).mean(), 3)
         resDict['LPIPS'] = round(res_detail["LPIPS"].astype(float).mean(), 3)
         resDataFrame = pd.DataFrame(resDict)
@@ -190,10 +204,12 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
             log.logger.info('[' + i + ']  RMSE - ' + str(resDict['RMSE']))
             log.logger.info('[' + i + ']  PSNR - ' + str(resDict['PSNR']))
             log.logger.info('[' + i + ']  SSIM - ' + str(resDict['SSIM']))
+            log.logger.info('[' + i + ']  PSNR-Y - ' + str(resDict['PSNR-Y']))
+            log.logger.info('[' + i + ']  SSIM-Y - ' + str(resDict['SSIM-Y']))
             log.logger.info('[' + i + ']  BRISQUE - ' + str(resDict['BRISQUE']))
             log.logger.info('[' + i + ']  LPIPS - ' + str(resDict['LPIPS']))
 
-# res.to_csv(os.path.join('../evaluate', output, Name + '.csv'), header=True, index=True)
+# Step 4: save evaluate result
 res.to_excel(os.path.join('../evaluate', output_path, Name + '.xlsx'), header=True, index=False)
 
 log.logger.info('Done.')

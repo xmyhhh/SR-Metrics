@@ -1,25 +1,18 @@
 
 from __future__ import absolute_import
 
-import sys
 import numpy as np
 import torch
-from torch import nn
 import os
 from collections import OrderedDict
 from torch.autograd import Variable
-import itertools
-from .base_model import BaseModel
+from MetricEvaluation.python.LPIPS.base_model import BaseModel
 from scipy.ndimage import zoom
-import fractions
-import functools
-import skimage.transform
 from tqdm import tqdm
 
-from IPython import embed
+from MetricEvaluation.python.LPIPS import networks_basic as networks
+from MetricEvaluation.python import LPIPS as util
 
-from . import networks_basic as networks
-import LPIPS as util
 
 class DistModel(BaseModel):
     def name(self):
@@ -66,7 +59,7 @@ class DistModel(BaseModel):
                 kw['map_location'] = 'cpu'
             if(model_path is None):
                 import inspect
-                model_path = os.path.abspath(os.path.join(inspect.getfile(self.initialize), '..', 'weights/v%s/%s.pth'%(version,net)))
+                model_path = os.path.abspath(os.path.join(inspect.getfile(self.initialize), '..', 'weights/v%s/%s.pth' % (version, net)))
 
             if(not is_train):
                 # print('Loading model from: %s'%model_path)
