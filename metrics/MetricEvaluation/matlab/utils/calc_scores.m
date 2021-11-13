@@ -10,8 +10,8 @@ lr_image = imread(lr_path);
 gt_image = imread(gt_path);
 
 if rgb2ycbcr
-    lr_image = toos.convert_shave_image(lr_image,shave_width);
-    gt_image = convert_shave_image(gt_image,shave_width);
+    lr_image = tools.convert_shave_image(lr_image,shave_width);
+    gt_image = tools.convert_shave_image(gt_image,shave_width);
 end
 
 if size(lr_image) ~= size(gt_image)
