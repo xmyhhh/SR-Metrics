@@ -66,8 +66,8 @@ def CalLPIPS(SR_path, GT_path):
 def evaluate_job(SR_path, HR_path, image_name, RGB2YCbCr):
     MATLAB = CalMATLAB(SR_path, HR_path, image_name, RGB2YCbCr)
     LPIPS = CalLPIPS(SR_path, HR_path)
-    PSNR, SSIM, PSNR_Y, SSIM_Y = calculate_psnr_ssim(cv2.imread(HR_path), cv2.imread(SR_path), crop_border=4)
-    print("Image " + image_name + "finished")
+    PSNR, SSIM, PSNR_Y, SSIM_Y = calculate_psnr_ssim(cv2.imread(HR_path)/255., cv2.imread(SR_path)/255., crop_border=4)
+    print("*Finished: Image " + image_name + " finished")
     return (image_name, MATLAB, LPIPS, PSNR, SSIM, PSNR_Y, SSIM_Y)
 
 
