@@ -42,7 +42,7 @@ class Logger(object):
 
 def CalMATLAB(SR_path, GT_path, image_name, RGB2YCbCr, evaluate_Ma):
     eng = matlab.engine.start_matlab()
-    eng.addpath(eng.genpath(eng.fullfile(os.getcwd(), 'MetricEvaluation','matlab')))
+    eng.addpath(eng.genpath(eng.fullfile(os.getcwd(), 'MetricEvaluation', 'matlab')))
     res = eng.evaluate_results(SR_path, GT_path, image_name, RGB2YCbCr, evaluate_Ma)
     res = np.array(res)
     res = res.squeeze()
@@ -99,7 +99,7 @@ output_path = Name
 xlsx_path = os.path.join('../evaluate', output_path, Name + '.xlsx')
 if not os.path.isdir('../evaluate'):
     os.mkdir('../evaluate')
-
+image_name, MATLAB, LPIPS, PSNR, SSIM, PSNR_Y, SSIM_Y = None, None, None, None, None, None, None
 os.makedirs(os.path.join('../evaluate', output_path), exist_ok=True)
 
 log = Logger(os.path.join('../evaluate', output_path, Name + '.log'), level='info')
@@ -138,7 +138,7 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
         else:
             res_detail = pd.DataFrame(
                 columns=(
-                    'Name', 'PI', 'Ma', 'NIQE', 'MSE', 'RMSE', 'PSNR', 'SSIM', 'PSRN-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS'))
+                    'Name', 'PI', 'Ma', 'NIQE', 'PSNR', 'SSIM', 'PSNR-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS'))
 
         # new ThreadPool
         executor = ThreadPoolExecutor(max_workers=max_workers)
@@ -153,15 +153,15 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
 
             else:
                 # For single theread
-                # MATLAB = CalMATLAB(SR_path, HR_path, image_name, RGB2YCbCr)
-                # LPIPS = CalLPIPS(SR_path, HR_path)
+                if max_workers == 1:
+                    image_name, MATLAB, LPIPS, PSNR, SSIM, PSNR_Y, SSIM_Y = evaluate_job(SR_path, HR_path, image_name,
+                                                                                         RGB2YCbCr, evaluate_Ma)
                 # For thereadpool
-                print("+Task: Image " + image_name)
-                args = [SR_path, HR_path, image_name, RGB2YCbCr, evaluate_Ma]
-                all_task.append(executor.submit(lambda p: evaluate_job(*p), args))
-
-        for future in as_completed(all_task):
-            image_name, MATLAB, LPIPS, PSNR, SSIM, PSNR_Y, SSIM_Y = future.result()
+                else:
+                    print("+Task: Image " + image_name)
+                    args = [SR_path, HR_path, image_name, RGB2YCbCr, evaluate_Ma]
+                    all_task.append(executor.submit(lambda p: evaluate_job(*p), args))
+        if max_workers == 1:
 
             resDict = dict()
 
@@ -183,9 +183,36 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
                 resDict['Ma'] = [round(MATLAB[3], 4)]
             resDataFrame = pd.DataFrame(resDict)
             res_detail = pd.concat([res_detail, resDataFrame])
-            with lock:
-                res_detail.to_excel(os.path.join('../evaluate', output_path, "detail", i + '.xlsx'), header=True,
-                                    index=False)
+
+            res_detail.to_excel(os.path.join('../evaluate', output_path, "detail", i + '.xlsx'), header=True,
+                                index=False)
+        else:
+            for future in as_completed(all_task):
+                image_name, MATLAB, LPIPS, PSNR, SSIM, PSNR_Y, SSIM_Y = future.result()
+
+                resDict = dict()
+
+                resDict['Name'] = [image_name]
+
+                resDict['NIQE'] = [round(MATLAB[0], 4)]
+                resDict['BRISQUE'] = [round(MATLAB[1], 4)]
+                # resDict['PSNR'] = [round(MATLAB[5], 3)]
+                # resDict['SSIM'] = [round(MATLAB[6], 3)]
+                resDict['PSNR'] = [round(PSNR, 3)]
+                resDict['SSIM'] = [round(SSIM, 3)]
+                resDict['PSNR-Y'] = [round(PSNR_Y, 3)]
+                resDict['SSIM-Y'] = [round(SSIM_Y, 3)]
+
+                resDict['LPIPS'] = [round(LPIPS, 4)]
+
+                if evaluate_Ma:
+                    resDict['PI'] = [round(MATLAB[2], 4)]
+                    resDict['Ma'] = [round(MATLAB[3], 4)]
+                resDataFrame = pd.DataFrame(resDict)
+                res_detail = pd.concat([res_detail, resDataFrame])
+                with lock:
+                    res_detail.to_excel(os.path.join('../evaluate', output_path, "detail", i + '.xlsx'), header=True,
+                                        index=False)
 
         resDict = dict()
         resDict['Dataset'] = [i]
@@ -193,7 +220,6 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
             resDict['PI'] = round(res_detail["PI"].astype(float).mean(), 3)
             resDict['Ma'] = round(res_detail["Ma"].astype(float).mean(), 3)
         resDict['NIQE'] = round(res_detail["NIQE"].astype(float).mean(), 3)
-
         resDict['PSNR'] = round(res_detail["PSNR"].astype(float).mean(), 3)
         resDict['SSIM'] = round(res_detail["SSIM"].astype(float).mean(), 3)
         resDict['PSNR-Y'] = round(res_detail["PSNR-Y"].astype(float).mean(), 3)

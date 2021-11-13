@@ -1,4 +1,4 @@
-function [scores] = calc_scores(lr_path,gt_path,image_name,shave_width,rgb2ycbcr,evaluate_Ma)
+function [scores] = calc_scores(sr_path,gt_path,image_name,shave_width,rgb2ycbcr,evaluate_Ma)
 
 
 
@@ -6,16 +6,16 @@ function [scores] = calc_scores(lr_path,gt_path,image_name,shave_width,rgb2ycbcr
     
 %% Reading and converting images
 
-lr_image = imread(lr_path);
+sr_image = imread(sr_path);
 gt_image = imread(gt_path);
 
 if rgb2ycbcr
-    lr_image = tools.convert_shave_image(lr_image,shave_width);
+    sr_image = tools.convert_shave_image(sr_image,shave_width);
     gt_image = tools.convert_shave_image(gt_image,shave_width);
 end
 
-if size(lr_image) ~= size(gt_image)
-  display(size(lr_image), lr_path)
+if size(sr_image) ~= size(gt_image)
+  display(size(sr_image), sr_path)
   display(size(gt_image), gt_path)
 end
 %% Calculating scores
@@ -27,7 +27,7 @@ p=genpath('.\MetricEvaluation\utils\srmetric');
 addpath(p);
 
 if evaluate_Ma
-scores.Ma = quality_predict(lr_image);
+scores.Ma = quality_predict(sr_image);
 end
 %if ndims(lr_image) == 2
 %    [scores.SSIM,scores.SSIM_map] = ssim(lr_image, gt_image);
@@ -43,9 +43,20 @@ end
 rmpath(p);
 
 
-scores.NIQE = niqe.niqe(lr_image);
 
-scores.BRISQUE =brisque.brisquescore(lr_image,image_name);
+s = size(sr_image);
+if s(1) == 160 & s(2) == 160
+    sr_image = [sr_image, sr_image(:,end:-1:1,:); sr_image(end:-1:1,:,:), sr_image(end:-1:1,end:-1:1,:)];
+end
+scores.NIQE = niqe(sr_image);
+scores.BRISQUE = brisque(sr_image);
+%scores.PIQE = piqe(img);
+%scores.NIQE = niqe.niqe(sr_image);
+
+%scores.BRISQUE =brisque.brisquescore(sr_image,image_name);
+
+
+
 
 
 end
