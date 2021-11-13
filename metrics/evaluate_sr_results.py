@@ -67,9 +67,8 @@ def CalLPIPS(SR_path, GT_path):
 def evaluate_job(SR_path, HR_path, image_name, RGB2YCbCr):
     MATLAB = CalMATLAB(SR_path, HR_path, image_name, RGB2YCbCr)
     LPIPS = CalLPIPS(SR_path, HR_path)
-
+    print("Image " + image_name + "finished")
     return (image_name, MATLAB, LPIPS)
-
 
 
 parser = argparse.ArgumentParser(description="Evaluate SR results")
@@ -140,12 +139,12 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
 
             res_detail['Name'] = res_detail['Name'].astype('str')
             if image_name in res_detail['Name'].unique():
-                print("Evaluation of Image" + image_name + " already exist, pass")
+                print("*Pass: Evaluation of Image " + image_name + " already exist")
 
             else:
                 # MATLAB = CalMATLAB(SR_path, HR_path, image_name, RGB2YCbCr)
                 # LPIPS = CalLPIPS(SR_path, HR_path)
-
+                print("+Task: Image " + image_name)
                 args = [SR_path, HR_path, image_name, RGB2YCbCr]
                 all_task.append(executor.submit(lambda p: evaluate_job(*p), args))
 
@@ -154,15 +153,15 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
 
             resDict = dict()
             resDict['Name'] = [image_name]
-            resDict['PI'] = [MATLAB[0]]
-            resDict['Ma'] = [MATLAB[1]]
-            resDict['NIQE'] = [MATLAB[2]]
-            resDict['MSE'] = [MATLAB[3]]
-            resDict['RMSE'] = [MATLAB[4]]
-            resDict['PSNR'] = [MATLAB[5]]
-            resDict['SSIM'] = [MATLAB[6]]
-            resDict['BRISQUE'] = [MATLAB[7]]
-            resDict['LPIPS'] = [LPIPS]
+            resDict['PI'] = [round(MATLAB[0], 4)]
+            resDict['Ma'] = [round(MATLAB[1], 4)]
+            resDict['NIQE'] = [round(MATLAB[2], 4)]
+            resDict['MSE'] = [round(MATLAB[3], 4)]
+            resDict['RMSE'] = [round(MATLAB[4], 4)]
+            resDict['PSNR'] = [round(MATLAB[5], 3)]
+            resDict['SSIM'] = [round(MATLAB[6], 3)]
+            resDict['BRISQUE'] = [round(MATLAB[7], 4)]
+            resDict['LPIPS'] = [round(LPIPS, 4)]
             resDataFrame = pd.DataFrame(resDict)
             res_detail = pd.concat([res_detail, resDataFrame])
             with lock:
@@ -171,15 +170,15 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
 
         resDict = dict()
         resDict['Dataset'] = [i]
-        resDict['PI'] = res_detail["PI"].mean()
-        resDict['Ma'] = res_detail["Ma"].mean()
-        resDict['NIQE'] = res_detail["NIQE"].mean()
-        resDict['MSE'] = res_detail["MSE"].mean()
-        resDict['RMSE'] = res_detail["RMSE"].mean()
-        resDict['PSNR'] = res_detail["PSNR"].mean()
-        resDict['SSIM'] = res_detail["SSIM"].mean()
-        resDict['BRISQUE'] = res_detail["BRISQUE"].mean()
-        resDict['LPIPS'] = res_detail["LPIPS"].mean()
+        resDict['PI'] = round(res_detail["PI"].astype(float).mean(), 3)
+        resDict['Ma'] = round(res_detail["Ma"].astype(float).mean(), 3)
+        resDict['NIQE'] = round(res_detail["NIQE"].astype(float).mean(), 3)
+        resDict['MSE'] = round(res_detail["MSE"].astype(float).mean(), 3)
+        resDict['RMSE'] = round(res_detail["RMSE"].astype(float).mean(), 3)
+        resDict['PSNR'] = round(res_detail["PSNR"].astype(float).mean(), 3)
+        resDict['SSIM'] = round(res_detail["SSIM"].astype(float).mean(), 3)
+        resDict['BRISQUE'] = round(res_detail["BRISQUE"].astype(float).mean(), 3)
+        resDict['LPIPS'] = round(res_detail["LPIPS"].astype(float).mean(), 3)
         resDataFrame = pd.DataFrame(resDict)
         res = res.append(resDataFrame)
         if Echo:
