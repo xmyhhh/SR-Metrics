@@ -12,7 +12,7 @@ function res = evaluate_results(input_dir, GT_dir,image_name,rgb2ycbcr,evaluate_
 shave_width = 4;
 
 %% Calculate scores and save
-addpath('utils')
+addpath('utils');
 scores = calc_scores(input_dir,GT_dir,image_name,shave_width,rgb2ycbcr,evaluate_Ma);
 % Saving
 %save(strcat(test_name,'.mat'),'scores');
