@@ -20,9 +20,9 @@ scores = calc_scores(input_dir,GT_dir,image_name,shave_width,rgb2ycbcr,evaluate_
 %% Printing results
 if evaluate_Ma
     perceptual_score = (mean([scores.NIQE]) + (10 - mean([scores.Ma]))) / 2;
-    res=[mean([scores.NIQE]),mean([scores.BRISQUE]),perceptual_score,mean([scores.Ma])];
+    res=[mean([scores.NIQE]),mean([scores.BRISQUE]),mean([scores.PIQE]),perceptual_score,mean([scores.Ma])];
 else
-     res=[mean([scores.NIQE]),mean([scores.BRISQUE])];
+     res=[mean([scores.NIQE]),mean([scores.BRISQUE]),mean([scores.PIQE])];
 end
 
 

@@ -53,13 +53,10 @@ scores.NIQE = niqe(sr_image);
 
 scores.BRISQUE = brisque(sr_image);
 
-%scores.PIQE = piqe(img);
+scores.PIQE = piqe(sr_image);
+
 %scores.NIQE = niqe.niqe(sr_image);
-
 %scores.BRISQUE =brisque.brisquescore(sr_image,image_name);
-
-
-
 
 
 end

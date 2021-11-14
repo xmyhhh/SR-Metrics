@@ -89,12 +89,14 @@ RGB2YCbCr = conf['RGB2YCbCr']
 evaluate_Ma = conf['evaluate_Ma']
 max_workers = conf['max_workers']
 if evaluate_Ma:
-    Metric = ['Ma', 'NIQE', 'PI', 'PSNR', 'SSIM', 'PSRN-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS']
+    Metric = ['Ma', 'NIQE', 'PI', 'PSNR', 'SSIM', 'PSNR-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS']
 else:
-    Metric = ['NIQE', 'PSNR', 'SSIM', 'PSRN-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS']
+    Metric = ['NIQE', 'PSNR', 'SSIM', 'PSNR-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS']
 Name = conf['Name']
 Echo = conf['Echo']
-
+executor = ThreadPoolExecutor(max_workers=max_workers)
+all_task = []
+lock = Lock()
 output_path = Name
 xlsx_path = os.path.join('../evaluate', output_path, Name + '.xlsx')
 if not os.path.isdir('../evaluate'):
@@ -116,12 +118,12 @@ if os.path.exists(xlsx_path):
     res = pd.read_excel(xlsx_path, dtype=str)
 else:
     res = pd.DataFrame(
-        columns=('Dataset', 'PI', 'Ma', 'NIQE', 'MSE', 'RMSE', 'PSNR', 'SSIM', 'PSRN-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS'))
+        columns=('Dataset', 'PI', 'Ma', 'NIQE', 'PIQE', 'PSNR', 'SSIM', 'PSNR-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS'))
 
 # Step 3: evaluate on each dataset
 for i, j, k in zip(Datasets, SRFolder, GTFolder):
     if i in res['Dataset'].unique():
-        print("Evaluation of Dataset" + i + " already exist, pass")
+        print("Evaluation of Dataset " + i + " already exist, pass")
     else:
         log.logger.info('Calculating ' + i + '...')
         if not set(os.listdir(j)) == set(os.listdir(k)):
@@ -133,60 +135,26 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
         SR_paths = get_files_paths(j, extensions=['jpg', 'png'])
         os.makedirs(os.path.join('../evaluate', output_path, "detail"), exist_ok=True)
         xlsx_detail_path = os.path.join('../evaluate', output_path, "detail", i + '.xlsx')
+
         if os.path.exists(xlsx_detail_path):
             res_detail = pd.read_excel(xlsx_detail_path, dtype=str)
         else:
             res_detail = pd.DataFrame(
                 columns=(
-                    'Name', 'PI', 'Ma', 'NIQE', 'PSNR', 'SSIM', 'PSNR-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS'))
+                    'Name', 'PI', 'Ma', 'NIQE', 'PIQE', 'PSNR', 'SSIM', 'PSNR-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS'))
 
-        # new ThreadPool
-        executor = ThreadPoolExecutor(max_workers=max_workers)
-        all_task = []
-        lock = Lock()
+        # add task to ThreadPool
         for HR_path, SR_path in zip(HR_paths, SR_paths):
             image_name = get_file_name(HR_path, False)
-
             res_detail['Name'] = res_detail['Name'].astype('str')
             if image_name in res_detail['Name'].unique():
                 print("*Pass: Evaluation of Image " + image_name + " already exist")
-
             else:
-                # For single theread
-                if max_workers == 1:
-                    image_name, MATLAB, LPIPS, PSNR, SSIM, PSNR_Y, SSIM_Y = evaluate_job(SR_path, HR_path, image_name,
-                                                                                         RGB2YCbCr, evaluate_Ma)
+                print("+Task: Image " + image_name)
+                args = [SR_path, HR_path, image_name, RGB2YCbCr, evaluate_Ma]
+                all_task.append(executor.submit(lambda p: evaluate_job(*p), args))
 
-                    resDict = dict()
-
-                    resDict['Name'] = [image_name]
-
-                    resDict['NIQE'] = [round(MATLAB[0], 4)]
-                    resDict['BRISQUE'] = [round(MATLAB[1], 4)]
-                    # resDict['PSNR'] = [round(MATLAB[5], 3)]
-                    # resDict['SSIM'] = [round(MATLAB[6], 3)]
-                    resDict['PSNR'] = [round(PSNR, 3)]
-                    resDict['SSIM'] = [round(SSIM, 3)]
-                    resDict['PSNR-Y'] = [round(PSNR_Y, 3)]
-                    resDict['SSIM-Y'] = [round(SSIM_Y, 3)]
-
-                    resDict['LPIPS'] = [round(LPIPS, 4)]
-
-                    if evaluate_Ma:
-                        resDict['PI'] = [round(MATLAB[2], 4)]
-                        resDict['Ma'] = [round(MATLAB[3], 4)]
-                    resDataFrame = pd.DataFrame(resDict)
-                    res_detail = pd.concat([res_detail, resDataFrame])
-
-                    res_detail.to_excel(os.path.join('../evaluate', output_path, "detail", i + '.xlsx'), header=True,
-                                        index=False)
-                # For thereadpool
-                else:
-                    print("+Task: Image " + image_name)
-                    args = [SR_path, HR_path, image_name, RGB2YCbCr, evaluate_Ma]
-                    all_task.append(executor.submit(lambda p: evaluate_job(*p), args))
-
-    if max_workers > 1:
+        # wait result from all task and write to excel
         for future in as_completed(all_task):
             image_name, MATLAB, LPIPS, PSNR, SSIM, PSNR_Y, SSIM_Y = future.result()
 
@@ -196,8 +164,8 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
 
             resDict['NIQE'] = [round(MATLAB[0], 4)]
             resDict['BRISQUE'] = [round(MATLAB[1], 4)]
-            # resDict['PSNR'] = [round(MATLAB[5], 3)]
-            # resDict['SSIM'] = [round(MATLAB[6], 3)]
+            resDict['PIQE'] = [round(MATLAB[2], 4)]
+
             resDict['PSNR'] = [round(PSNR, 3)]
             resDict['SSIM'] = [round(SSIM, 3)]
             resDict['PSNR-Y'] = [round(PSNR_Y, 3)]
@@ -206,41 +174,44 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
             resDict['LPIPS'] = [round(LPIPS, 4)]
 
             if evaluate_Ma:
-                resDict['PI'] = [round(MATLAB[2], 4)]
-                resDict['Ma'] = [round(MATLAB[3], 4)]
+                resDict['PI'] = [round(MATLAB[3], 4)]
+                resDict['Ma'] = [round(MATLAB[4], 4)]
+
             resDataFrame = pd.DataFrame(resDict)
             res_detail = pd.concat([res_detail, resDataFrame])
             with lock:
                 res_detail.to_excel(os.path.join('../evaluate', output_path, "detail", i + '.xlsx'), header=True,
                                     index=False)
 
-    resDict = dict()
-    resDict['Dataset'] = [i]
-    if evaluate_Ma:
-        resDict['PI'] = round(res_detail["PI"].astype(float).mean(), 3)
-        resDict['Ma'] = round(res_detail["Ma"].astype(float).mean(), 3)
-    resDict['NIQE'] = round(res_detail["NIQE"].astype(float).mean(), 3)
-    resDict['PSNR'] = round(res_detail["PSNR"].astype(float).mean(), 3)
-    resDict['SSIM'] = round(res_detail["SSIM"].astype(float).mean(), 3)
-    resDict['PSNR-Y'] = round(res_detail["PSNR-Y"].astype(float).mean(), 3)
-    resDict['SSIM-Y'] = round(res_detail["SSIM-Y"].astype(float).mean(), 3)
-    resDict['BRISQUE'] = round(res_detail["BRISQUE"].astype(float).mean(), 3)
-    resDict['LPIPS'] = round(res_detail["LPIPS"].astype(float).mean(), 3)
-    resDataFrame = pd.DataFrame(resDict)
-    res = res.append(resDataFrame)
-    if Echo:
-        log.logger.info('[' + i + ']    Dataset - ' + str(resDict['Dataset']))
+        # write final result to excel
+        resDict = dict()
+        resDict['Dataset'] = [i]
         if evaluate_Ma:
-            log.logger.info('[' + i + ']    PI - ' + str(resDict['PI']))
-            log.logger.info('[' + i + ']    Ma - ' + str(resDict['Ma']))
-        log.logger.info('[' + i + ']  NIQE - ' + str(resDict['NIQE']))
-
-        log.logger.info('[' + i + ']  PSNR - ' + str(resDict['PSNR']))
-        log.logger.info('[' + i + ']  SSIM - ' + str(resDict['SSIM']))
-        log.logger.info('[' + i + ']  PSNR-Y - ' + str(resDict['PSNR-Y']))
-        log.logger.info('[' + i + ']  SSIM-Y - ' + str(resDict['SSIM-Y']))
-        log.logger.info('[' + i + ']  BRISQUE - ' + str(resDict['BRISQUE']))
-        log.logger.info('[' + i + ']  LPIPS - ' + str(resDict['LPIPS']))
+            resDict['PI'] = round(res_detail["PI"].astype(float).mean(), 3)
+            resDict['Ma'] = round(res_detail["Ma"].astype(float).mean(), 3)
+        resDict['NIQE'] = round(res_detail["NIQE"].astype(float).mean(), 3)
+        resDict['PIQE'] = round(res_detail["PIQE"].astype(float).mean(), 3)
+        resDict['PSNR'] = round(res_detail["PSNR"].astype(float).mean(), 3)
+        resDict['SSIM'] = round(res_detail["SSIM"].astype(float).mean(), 3)
+        resDict['PSNR-Y'] = round(res_detail["PSNR-Y"].astype(float).mean(), 3)
+        resDict['SSIM-Y'] = round(res_detail["SSIM-Y"].astype(float).mean(), 3)
+        resDict['BRISQUE'] = round(res_detail["BRISQUE"].astype(float).mean(), 3)
+        resDict['LPIPS'] = round(res_detail["LPIPS"].astype(float).mean(), 3)
+        resDataFrame = pd.DataFrame(resDict)
+        res = res.append(resDataFrame)
+        if Echo:
+            log.logger.info('[' + i + ']    Dataset - ' + str(resDict['Dataset']))
+            if evaluate_Ma:
+                log.logger.info('[' + i + ']    PI - ' + str(resDict['PI']))
+                log.logger.info('[' + i + ']    Ma - ' + str(resDict['Ma']))
+            log.logger.info('[' + i + ']  NIQE - ' + str(resDict['NIQE']))
+            log.logger.info('[' + i + ']  PIQE - ' + str(resDict['PIQE']))
+            log.logger.info('[' + i + ']  PSNR - ' + str(resDict['PSNR']))
+            log.logger.info('[' + i + ']  SSIM - ' + str(resDict['SSIM']))
+            log.logger.info('[' + i + ']  PSNR-Y - ' + str(resDict['PSNR-Y']))
+            log.logger.info('[' + i + ']  SSIM-Y - ' + str(resDict['SSIM-Y']))
+            log.logger.info('[' + i + ']  BRISQUE - ' + str(resDict['BRISQUE']))
+            log.logger.info('[' + i + ']  LPIPS - ' + str(resDict['LPIPS']))
 
 # Step 4: save evaluate result
 res.to_excel(os.path.join('../evaluate', output_path, Name + '.xlsx'), header=True, index=False)
