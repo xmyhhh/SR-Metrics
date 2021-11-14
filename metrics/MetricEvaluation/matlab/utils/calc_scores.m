@@ -48,15 +48,15 @@ s = size(sr_image);
 if s(1) == 160 & s(2) == 160
     sr_image = [sr_image, sr_image(:,end:-1:1,:); sr_image(end:-1:1,:,:), sr_image(end:-1:1,end:-1:1,:)];
 end
-disp('NIQE start')
+%disp('NIQE start')
 scores.NIQE = niqe(sr_image);
-disp('NIQE end')
-disp('BRISQUE start')
+%disp('NIQE end')
+%disp('BRISQUE start')
 scores.BRISQUE = brisque(sr_image);
-disp('BRISQUE end')
-disp('PIQE start')
+%disp('BRISQUE end')
+%disp('PIQE start')
 scores.PIQE = piqe(sr_image);
-disp('PIQE end')
+%disp('PIQE end')
 %scores.NIQE = niqe.niqe(sr_image);
 %scores.BRISQUE =brisque.brisquescore(sr_image,image_name);
 
