@@ -69,7 +69,7 @@ def evaluate_job(SR_path, HR_path, image_name, RGB2YCbCr, evaluate_Ma):
     PSNR, SSIM, PSNR_Y, SSIM_Y = calculate_psnr_ssim(cv2.imread(HR_path) / 255., cv2.imread(SR_path) / 255.,
                                                      crop_border=4)
     print("*Finished: Image " + image_name + " finished")
-    return (image_name, MATLAB, LPIPS, PSNR, SSIM, PSNR_Y, SSIM_Y)
+    return image_name, MATLAB, LPIPS, PSNR, SSIM, PSNR_Y, SSIM_Y
 
 
 parser = argparse.ArgumentParser(description="Evaluate SR results")
