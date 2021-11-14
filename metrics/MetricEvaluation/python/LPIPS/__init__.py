@@ -7,7 +7,7 @@ import numpy as np
 from skimage import measure
 import torch
 
-import dist_model
+from MetricEvaluation.python.LPIPS import dist_model
 
 
 class PerceptualLoss(torch.nn.Module):

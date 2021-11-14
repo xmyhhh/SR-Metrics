@@ -24,7 +24,7 @@ Pairs:
 
 
 RGB2YCbCr: False
-evaluate_Ma: True
+evaluate_Ma: False
 max_workers: 4
 Name: Bicubic
 Echo: True
