@@ -19,7 +19,7 @@ The scripts will calculate the values of the following evaluation metrics:
 ## Dependencies
 - Python 3 
 - [PyTorch >= 1.0](https://pytorch.org/)
-- Matlab (IMAGE QUALITY TOOLBOX required)
+- Matlab (`IMAGE TOOLBOX` required)
 
 ## Instructions for use this code
 Please ref [BLIND IMAGE QUALITY TOOLBOX](./metrics/README.md "BLIND IMAGE QUALITY TOOLBOX")

@@ -127,7 +127,7 @@ Echo: True
 - `SRFolder`: The folder path of SR images.
 - `RGB2YCbCr`: Set whether convert color space in matlab code.
 - `evaluate_Ma`: Set whether to calculate metrics `Ma`. The calculation of metrics `Ma` takes a lot of time.
-- `max_workers`: max worker. 
+- `max_workers`: max worker. (Since the computing function of `NIQE` in MATLAB seems to be thread unsafe, multithread computing may have problems)
 - `Name`: The evaluation's name.
 - `Echo`: Whether to echo scores while evaluating or not.
 
