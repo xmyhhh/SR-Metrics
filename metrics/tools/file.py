@@ -15,7 +15,15 @@ def create_all_dirs(path):
     os.makedirs(dirs, exist_ok=True)
 
 
-def get_files_paths(dataroot, extensions, data_type='normal'):
+def get_son_dir(dataroot):
+    son_dir = []
+    for _, dirs, _ in sorted(os.walk(dataroot)):
+        for dname in sorted(dirs):
+            son_dir.append(dname)
+    return son_dir
+
+
+def get_files_paths(dataroot, extensions, data_type='normal', include_son_dir=False):
     # '''
     # '''
     '''
@@ -50,12 +58,14 @@ def get_files_paths(dataroot, extensions, data_type='normal'):
             return any(filename.endswith(extension) for extension in EXTENSIONS)
 
         flies = []
-        for dirpath, _, fnames in sorted(os.walk(path)):
-            for fname in sorted(fnames):
-                if is_extension_file(fname, extensions):
-                    img_path = os.path.join(dirpath, fname)
-                    flies.append(img_path)
-
+        deepth = 0
+        for dirpath, dirs, fnames in sorted(os.walk(path)):
+            if include_son_dir or deepth == 0:
+                for fname in sorted(fnames):
+                    if is_extension_file(fname, extensions):
+                        img_path = os.path.join(dirpath, fname)
+                        flies.append(img_path)
+            deepth = 1
         if not flies:
             print('{:s} has no valid file'.format(path))
         return flies

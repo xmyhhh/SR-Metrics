@@ -10,7 +10,7 @@ def dict2Yaml(fileName, dataDict):
 
 
 MethodDict = dict()
-MethodDict['SPSR_0330'] = ['Set5', 'Set14', 'BSD100', 'Urban100']
+MethodDict['HCFlow_heat_a=23_b=5_t=0.95'] = ['DIV2K']
 RGB2YCbCr = False
 evaluate_Ma = False
 max_workers = 8
@@ -33,7 +33,7 @@ for method in MethodDict.keys():
     for dataset in MethodDict[method]:
         dataDict['Pairs']['SRFolder'].append(str(os.path.join('../data', 'SR', dataset, method)))
         dataDict['Pairs']['GTFolder'].append(str(os.path.join('../data', 'GT', dataset, 'HR')))
-    bashFile.append('python evaluate_sr_results.py ' + str(fileName))
+    # bashFile.append('python evaluate_sr_results.py ' + str(fileName))
     dict2Yaml(fileName, dataDict)
 
 print('Done.')

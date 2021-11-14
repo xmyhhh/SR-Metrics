@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 
 from MetricEvaluation.python.psnr_ssim import calculate_psnr_ssim
-from tools.file import changeSR_name, get_files_paths, get_file_name
+from tools.file import changeSR_name, get_files_paths, get_file_name, get_son_dir
 
 
 class Logger(object):
@@ -40,9 +40,7 @@ class Logger(object):
         self.logger.addHandler(th)
 
 
-def CalMATLAB(SR_path, GT_path, image_name, RGB2YCbCr, evaluate_Ma):
-    eng = matlab.engine.start_matlab()
-    eng.addpath(eng.genpath(eng.fullfile(os.getcwd(), 'MetricEvaluation', 'matlab')))
+def CalMATLAB(eng, SR_path, GT_path, image_name, RGB2YCbCr, evaluate_Ma):
     res = eng.evaluate_results(SR_path, GT_path, image_name, RGB2YCbCr, evaluate_Ma)
     res = np.array(res)
     res = res.squeeze()
@@ -63,13 +61,63 @@ def CalLPIPS(SR_path, GT_path):
     return np.mean(res)
 
 
-def evaluate_job(SR_path, HR_path, image_name, RGB2YCbCr, evaluate_Ma):
-    MATLAB = CalMATLAB(SR_path, HR_path, image_name, RGB2YCbCr, evaluate_Ma)
+def evaluate_paired_img(MATLAB_eng, SR_path, HR_path, image_name, RGB2YCbCr, evaluate_Ma):
+    MATLAB = CalMATLAB(MATLAB_eng, SR_path, HR_path, image_name, RGB2YCbCr, evaluate_Ma)
     LPIPS = CalLPIPS(SR_path, HR_path)
     PSNR, SSIM, PSNR_Y, SSIM_Y = calculate_psnr_ssim(cv2.imread(HR_path) / 255., cv2.imread(SR_path) / 255.,
                                                      crop_border=4)
     print("*Finished: Image " + image_name + " finished")
     return image_name, MATLAB, LPIPS, PSNR, SSIM, PSNR_Y, SSIM_Y
+
+
+def evaluate_paired_folder(MATLAB_eng, SR_Folder, HR_Folder, xlsx_detail_path):
+    HR_paths = get_files_paths(HR_Folder, extensions=['jpg', 'png'])
+    SR_paths = get_files_paths(SR_Folder, extensions=['jpg', 'png'])
+
+    if os.path.exists(xlsx_detail_path):
+        res_detail = pd.read_excel(xlsx_detail_path, dtype=str)
+    else:
+        res_detail = pd.DataFrame(
+            columns=(
+                'Name', 'PI', 'Ma', 'NIQE', 'PIQE', 'PSNR', 'SSIM', 'PSNR-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS'))
+
+    # add task to ThreadPool
+    all_task = []
+    for HR_path, SR_path in zip(HR_paths, SR_paths):
+        image_name = get_file_name(HR_path, False)
+        res_detail['Name'] = res_detail['Name'].astype('str')
+        if image_name in res_detail['Name'].unique():
+            print("*Pass: Evaluation of Image " + image_name + " already exist")
+        else:
+            print("+Task: Image " + image_name)
+            args = [MATLAB_eng, SR_path, HR_path, image_name, RGB2YCbCr, evaluate_Ma]
+            all_task.append(executor.submit(lambda p: evaluate_paired_img(*p), args))
+
+    # wait result from all task and write to excel
+    for future in as_completed(all_task):
+        image_name, MATLAB, LPIPS, PSNR, SSIM, PSNR_Y, SSIM_Y = future.result()
+
+        resDict = dict()
+        resDict['Name'] = [image_name]
+        resDict['NIQE'] = [round(MATLAB[0], 4)]
+        resDict['BRISQUE'] = [round(MATLAB[1], 4)]
+        resDict['PIQE'] = [round(MATLAB[2], 4)]
+        resDict['PSNR'] = [round(PSNR, 3)]
+        resDict['SSIM'] = [round(SSIM, 3)]
+        resDict['PSNR-Y'] = [round(PSNR_Y, 3)]
+        resDict['SSIM-Y'] = [round(SSIM_Y, 3)]
+        resDict['LPIPS'] = [round(LPIPS, 4)]
+
+        if evaluate_Ma:
+            resDict['PI'] = [round(MATLAB[3], 4)]
+            resDict['Ma'] = [round(MATLAB[4], 4)]
+
+        resDataFrame = pd.DataFrame(resDict)
+        res_detail = pd.concat([res_detail, resDataFrame])
+        with lock:
+            res_detail.to_excel(xlsx_detail_path, header=True,
+                                index=False)
+    return res_detail
 
 
 parser = argparse.ArgumentParser(description="Evaluate SR results")
@@ -80,22 +128,21 @@ conf = dict()
 with open(args.YAML, 'r', encoding='UTF-8') as f:
     conf = yaml.load(f.read(), Loader=yaml.FullLoader)
 
-# Step 1: init config and Logger
-
+# Step 1: init config and Logger and start matlab engine
+MATLAB_eng = matlab.engine.start_matlab()
+MATLAB_eng.addpath(MATLAB_eng.genpath(MATLAB_eng.fullfile(os.getcwd(), 'MetricEvaluation', 'matlab')))
 Datasets = conf['Pairs']['Dataset']
 SRFolder = conf['Pairs']['SRFolder']
 GTFolder = conf['Pairs']['GTFolder']
 RGB2YCbCr = conf['RGB2YCbCr']
 evaluate_Ma = conf['evaluate_Ma']
+One2Many = conf['One2Many']
 max_workers = conf['max_workers']
-if evaluate_Ma:
-    Metric = ['Ma', 'NIQE', 'PI', 'PSNR', 'SSIM', 'PSNR-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS']
-else:
-    Metric = ['NIQE', 'PSNR', 'SSIM', 'PSNR-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS']
+
 Name = conf['Name']
 Echo = conf['Echo']
 executor = ThreadPoolExecutor(max_workers=1)
-all_task = []
+
 lock = Lock()
 output_path = Name
 xlsx_path = os.path.join('../evaluate', output_path, Name + '.xlsx')
@@ -109,7 +156,7 @@ log.logger.info('Init...')
 log.logger.info('SRFolder - ' + str(Datasets))
 log.logger.info('GTFolder - ' + str(GTFolder))
 log.logger.info('SRFolder - ' + str(SRFolder))
-log.logger.info('Metric - ' + str(Metric))
+
 log.logger.info('Name - ' + Name)
 log.logger.info('Echo - ' + str(Echo))
 
@@ -126,63 +173,22 @@ for i, j, k in zip(Datasets, SRFolder, GTFolder):
         print("Evaluation of Dataset " + i + " already exist, pass")
     else:
         log.logger.info('Calculating ' + i + '...')
-        if not set(os.listdir(j)) == set(os.listdir(k)):
-            'SR pictures and GT pictures are not matched.'
-            print("file name not same" + "HR_path:" + k + " SR_path" + j)
-            changeSR_name(k, j)
 
-        HR_paths = get_files_paths(k, extensions=['jpg', 'png'])
-        SR_paths = get_files_paths(j, extensions=['jpg', 'png'])
-        os.makedirs(os.path.join('../evaluate', output_path, "detail"), exist_ok=True)
-        xlsx_detail_path = os.path.join('../evaluate', output_path, "detail", i + '.xlsx')
+        if One2Many:
+            SR_son_folder = get_son_dir(j)
+            res_detail_list = []
+            for SR_son_Folder_item in SR_son_folder:
+                os.makedirs(os.path.join('../evaluate', output_path, "detail", i), exist_ok=True)
+                xlsx_detail_path = os.path.join('../evaluate', output_path, "detail", i, SR_son_Folder_item + '.xlsx')
 
-        if os.path.exists(xlsx_detail_path):
-            res_detail = pd.read_excel(xlsx_detail_path, dtype=str)
+                res_detail_list.append(
+                    evaluate_paired_folder(MATLAB_eng, os.path.join(j, SR_son_Folder_item), k, xlsx_detail_path))
+            res_detail = pd.concat(res_detail_list)
+            res_detail_list = []
         else:
-            res_detail = pd.DataFrame(
-                columns=(
-                    'Name', 'PI', 'Ma', 'NIQE', 'PIQE', 'PSNR', 'SSIM', 'PSNR-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS'))
-
-        # add task to ThreadPool
-        for HR_path, SR_path in zip(HR_paths, SR_paths):
-            image_name = get_file_name(HR_path, False)
-            res_detail['Name'] = res_detail['Name'].astype('str')
-            if image_name in res_detail['Name'].unique():
-                print("*Pass: Evaluation of Image " + image_name + " already exist")
-            else:
-                print("+Task: Image " + image_name)
-                args = [SR_path, HR_path, image_name, RGB2YCbCr, evaluate_Ma]
-                all_task.append(executor.submit(lambda p: evaluate_job(*p), args))
-
-        # wait result from all task and write to excel
-        for future in as_completed(all_task):
-            image_name, MATLAB, LPIPS, PSNR, SSIM, PSNR_Y, SSIM_Y = future.result()
-
-            resDict = dict()
-
-            resDict['Name'] = [image_name]
-
-            resDict['NIQE'] = [round(MATLAB[0], 4)]
-            resDict['BRISQUE'] = [round(MATLAB[1], 4)]
-            resDict['PIQE'] = [round(MATLAB[2], 4)]
-
-            resDict['PSNR'] = [round(PSNR, 3)]
-            resDict['SSIM'] = [round(SSIM, 3)]
-            resDict['PSNR-Y'] = [round(PSNR_Y, 3)]
-            resDict['SSIM-Y'] = [round(SSIM_Y, 3)]
-
-            resDict['LPIPS'] = [round(LPIPS, 4)]
-
-            if evaluate_Ma:
-                resDict['PI'] = [round(MATLAB[3], 4)]
-                resDict['Ma'] = [round(MATLAB[4], 4)]
-
-            resDataFrame = pd.DataFrame(resDict)
-            res_detail = pd.concat([res_detail, resDataFrame])
-            with lock:
-                res_detail.to_excel(os.path.join('../evaluate', output_path, "detail", i + '.xlsx'), header=True,
-                                    index=False)
-
+            os.makedirs(os.path.join('../evaluate', output_path, "detail"), exist_ok=True)
+            xlsx_detail_path = os.path.join('../evaluate', output_path, "detail", i + '.xlsx')
+            res_detail = evaluate_paired_folder(MATLAB_eng, j, k, xlsx_detail_path)
         # write final result to excel
         resDict = dict()
         resDict['Dataset'] = [i]
