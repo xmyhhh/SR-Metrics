@@ -94,7 +94,7 @@ else:
     Metric = ['NIQE', 'PSNR', 'SSIM', 'PSNR-Y', 'SSIM-Y', 'BRISQUE', 'LPIPS']
 Name = conf['Name']
 Echo = conf['Echo']
-executor = ThreadPoolExecutor(max_workers=max_workers)
+executor = ThreadPoolExecutor(max_workers=1)
 all_task = []
 lock = Lock()
 output_path = Name
