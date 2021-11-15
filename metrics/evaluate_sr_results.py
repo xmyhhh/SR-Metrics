@@ -141,7 +141,7 @@ max_workers = conf['max_workers']
 
 Name = conf['Name']
 Echo = conf['Echo']
-executor = ThreadPoolExecutor(max_workers=1)
+executor = ThreadPoolExecutor(max_workers=max_workers)
 
 lock = Lock()
 output_path = Name

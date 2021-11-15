@@ -26,5 +26,6 @@ Pairs:
 RGB2YCbCr: False
 evaluate_Ma: False
 max_workers: 10
+One2Many: False
 Name: Bicubic
 Echo: True
