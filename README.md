@@ -29,7 +29,7 @@ Please ref [BLIND IMAGE QUALITY TOOLBOX](./metrics/README.md "BLIND IMAGE QUALIT
 
 ## Note
 - Please ensure that SR and GT are the same size.
-- Please note that the code is still in testing and the code can change dramatically. If you find any bugs or have any suggestions, please feel free to contact me. My e-mail: xmycissy@outlook.com
+
 
 ## Reference
 The code is based on [SPSR](https://github.com/Maclory/SPSR)  and [BIQT](https://github.com/dsoellinger/blind_image_quality_toolbox). 
